@@ -1,5 +1,7 @@
+# ============================================
+# DATABASES LAYER (Infrastructure)
+# ============================================
 services:
-  # PostgreSQL для agent-service
   agent-postgres:
     image: postgres:15-alpine
     container_name: agent-postgres
@@ -8,14 +10,16 @@ services:
     volumes:
       - agent_postgres_data:/var/lib/postgresql/data
     networks:
-      - agent-network
+      - agent-db-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      - "layer=database"
+      - "service=agent"
 
-  # Redis для agent-service
   agent-redis:
     image: redis:7-alpine
     container_name: agent-redis
@@ -23,14 +27,32 @@ services:
       - agent_redis_data:/data
     command: redis-server --appendonly yes
     networks:
-      - agent-network
+      - agent-db-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      - "layer=database"
+      - "service=agent"
 
-  # Agent Service (с postgres и redis)
+  rag-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rag-qdrant
+    volumes:
+      - rag_qdrant_data:/qdrant/storage
+    networks:
+      - rag-db-network
+    restart: unless-stopped
+    labels:
+      - "layer=database"
+      - "service=rag"
+
+# ============================================
+# BACKEND SERVICES LAYER (Business Logic)
+# ============================================
+
   agent-service:
     build:
       context: ./agent-service
@@ -51,24 +73,13 @@ services:
       agent-redis:
         condition: service_healthy
     networks:
-      - agent-network
-      - rag-network
+      - agent-db-network
+      - services-network
     restart: unless-stopped
+    labels:
+      - "layer=backend"
+      - "service=agent"
 
-  # Qdrant векторная БД для rag-service
-  rag-qdrant:
-    image: qdrant/qdrant:latest
-    container_name: rag-qdrant
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - rag_qdrant_data:/qdrant/storage
-    networks:
-      - rag-network
-    restart: unless-stopped
-
-  # RAG Service (с qdrant)
   rag-service:
     build:
       context: ./rag-service
@@ -84,10 +95,17 @@ services:
     depends_on:
       - rag-qdrant
     networks:
-      - rag-network
+      - rag-db-network
+      - services-network
     restart: unless-stopped
+    labels:
+      - "layer=backend"
+      - "service=rag"
 
-  # API Gateway
+# ============================================
+# API LAYER (Gateway & Clients)
+# ============================================
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -104,10 +122,13 @@ services:
       - agent-service
       - rag-service
     networks:
-      - rag-network
+      - services-network
+      - public-network
     restart: unless-stopped
+    labels:
+      - "layer=api"
+      - "service=gateway"
 
-  # Telegram Bot
   telegram-bot:
     build:
       context: ./telegram-bot
@@ -120,8 +141,11 @@ services:
     depends_on:
       - api-gateway
     networks:
-      - rag-network
+      - public-network
     restart: unless-stopped
+    labels:
+      - "layer=api"
+      - "service=telegram-bot"
 
 volumes:
   agent_postgres_data:
@@ -129,7 +153,28 @@ volumes:
   rag_qdrant_data:
 
 networks:
-  agent-network:
+  # Изолированная сеть для agent-service и его БД
+  agent-db-network:
     driver: bridge
-  rag-network:
+    internal: false
+    labels:
+      - "layer=database"
+  
+  # Изолированная сеть для rag-service и его БД
+  rag-db-network:
     driver: bridge
+    internal: false
+    labels:
+      - "layer=database"
+  
+  # Сеть для взаимодействия между бэкенд-сервисами
+  services-network:
+    driver: bridge
+    labels:
+      - "layer=backend"
+  
+  # Публичная сеть для API Gateway и клиентов
+  public-network:
+    driver: bridge
+    labels:
+      - "layer=api"
