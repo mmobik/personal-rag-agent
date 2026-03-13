@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from bot import bot, dispatcher
-from handlers import start
+from app.bot import bot, dispatcher
+from app.handlers import start
 
 logging.basicConfig(level=logging.INFO)
 
