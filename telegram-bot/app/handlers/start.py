@@ -13,12 +13,12 @@ async def cmd_start(message: types.Message):
     }
     try:
         async with httpx.AsyncClient() as client:
-            r = await client.post(
+            response = await client.post(
                 f"{settings.API_GATEWAY_URL}/api/v1/users",
                 json=payload,
                 timeout=5.0,
             )
-        if r.status_code in (200, 201):
+        if response.status_code in (200, 201):
             pass  # пользователь сохранён в PostgreSQL через agent-service
     except Exception:
         pass  # не падаем, если сервис недоступен

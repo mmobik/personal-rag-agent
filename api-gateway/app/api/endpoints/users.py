@@ -10,11 +10,11 @@ async def create_user(request: Request):
     """Прокси: передаёт запрос в agent-service (сохранение в PostgreSQL)."""
     body = await request.json()
     async with httpx.AsyncClient() as client:
-        r = await client.post(
+        response = await client.post(
             f"{settings.AGENT_SERVICE_URL}/api/v1/users",
             json=body,
             timeout=10.0,
         )
-    if r.status_code >= 400:
-        raise HTTPException(status_code=r.status_code, detail=r.text)
-    return r.json()
+    if response.status_code >= 400:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    return response.json()
