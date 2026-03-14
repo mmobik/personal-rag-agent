@@ -1,0 +1,186 @@
+# ============================================
+# DATABASES LAYER (Infrastructure)
+# ============================================
+services:
+  agent-postgres:
+    image: postgres:15-alpine
+    container_name: agent-postgres
+    environment:
+      POSTGRES_DB: agent_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - agent_postgres_data:/var/lib/postgresql/data
+    networks:
+      - agent-db-network
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "layer=database"
+      - "service=agent"
+
+  agent-redis:
+    image: redis:7-alpine
+    container_name: agent-redis
+    volumes:
+      - agent_redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - agent-db-network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "layer=database"
+      - "service=agent"
+
+  rag-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rag-qdrant
+    volumes:
+      - rag_qdrant_data:/qdrant/storage
+    networks:
+      - rag-db-network
+    restart: unless-stopped
+    labels:
+      - "layer=database"
+      - "service=rag"
+
+# ============================================
+# BACKEND SERVICES LAYER (Business Logic)
+# ============================================
+
+  agent-service:
+    build:
+      context: ./agent-service
+      dockerfile: Dockerfile
+    container_name: agent-service
+    env_file:
+      - ./agent-service/.env
+    environment:
+      POSTGRES_HOST: agent-postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: agent-redis
+      REDIS_PORT: 6379
+    ports:
+      - "8001:8000"
+    depends_on:
+      agent-postgres:
+        condition: service_healthy
+      agent-redis:
+        condition: service_healthy
+    networks:
+      - agent-db-network
+      - services-network
+    restart: unless-stopped
+    labels:
+      - "layer=backend"
+      - "service=agent"
+
+  rag-service:
+    build:
+      context: ./rag-service
+      dockerfile: Dockerfile
+    container_name: rag-service
+    env_file:
+      - ./rag-service/.env
+    environment:
+      QDRANT_HOST: rag-qdrant
+      QDRANT_PORT: 6333
+    ports:
+      - "8002:8000"
+    depends_on:
+      - rag-qdrant
+    networks:
+      - rag-db-network
+      - services-network
+    restart: unless-stopped
+    labels:
+      - "layer=backend"
+      - "service=rag"
+
+# ============================================
+# API LAYER (Gateway & Clients)
+# ============================================
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    env_file:
+      - ./api-gateway/.env
+    environment:
+      AGENT_SERVICE_URL: http://agent-service:8000
+      RAG_SERVICE_URL: http://rag-service:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - agent-service
+      - rag-service
+    networks:
+      - services-network
+      - public-network
+    restart: unless-stopped
+    labels:
+      - "layer=api"
+      - "service=gateway"
+
+  telegram-bot:
+    build:
+      context: ./telegram-bot
+      dockerfile: Dockerfile
+    container_name: telegram-bot
+    env_file:
+      - ./telegram-bot/.env
+    environment:
+      API_GATEWAY_URL: http://api-gateway:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - public-network
+    restart: unless-stopped
+    labels:
+      - "layer=api"
+      - "service=telegram-bot"
+
+volumes:
+  agent_postgres_data:
+  agent_redis_data:
+  rag_qdrant_data:
+
+networks:
+  # Изолированная сеть для agent-service и его БД
+  agent-db-network:
+    driver: bridge
+    internal: false
+    labels:
+      - "layer=database"
+  
+  # Изолированная сеть для rag-service и его БД
+  rag-db-network:
+    driver: bridge
+    internal: false
+    labels:
+      - "layer=database"
+  
+  # Сеть для взаимодействия между бэкенд-сервисами
+  services-network:
+    driver: bridge
+    labels:
+      - "layer=backend"
+  
+  # Публичная сеть для API Gateway и клиентов
+  public-network:
+    driver: bridge
+    labels:
+      - "layer=api"
