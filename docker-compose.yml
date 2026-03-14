@@ -5,12 +5,16 @@ services:
   agent-postgres:
     image: postgres:15-alpine
     container_name: agent-postgres
-    env_file:
-      - ./agent-service/.env
+    environment:
+      POSTGRES_DB: agent_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
     volumes:
       - agent_postgres_data:/var/lib/postgresql/data
     networks:
       - agent-db-network
+    ports:
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
