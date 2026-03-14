@@ -1,9 +1,10 @@
 from fastapi import FastAPI
-from app.api.endpoints import health
+from app.api.endpoints import health, users
 
 app = FastAPI()
 
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(health.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
 
 @app.get("/")
 async def read_root():
