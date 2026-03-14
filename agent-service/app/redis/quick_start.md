@@ -1,0 +1,1 @@
+Для запуска: python -m app.redis.client
