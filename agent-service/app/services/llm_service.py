@@ -18,9 +18,13 @@ def _headers() -> dict[str, str]:
 
 async def complete(messages: list[dict[str, str]], model: str | None = None) -> str:
     """Отправить сообщения в Open Router, вернуть текст ответа."""
+    full_messages: list[dict[str, str]] = []
+    if settings.OPENROUTER_SYSTEM_PROMPT:
+        full_messages.append({"role": "system", "content": settings.OPENROUTER_SYSTEM_PROMPT})
+    full_messages.extend(messages)
     payload = {
         "model": model or settings.OPENROUTER_MODEL,
-        "messages": messages,
+        "messages": full_messages,
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         r = await client.post(OPENROUTER_URL, json=payload, headers=_headers())

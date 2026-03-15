@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MODEL: str = "deepseek/deepseek-chat"
+    OPENROUTER_SYSTEM_PROMPT: str = ""
     OPENROUTER_REFERER: str | None = None
     OPENROUTER_TITLE: str | None = None
 
