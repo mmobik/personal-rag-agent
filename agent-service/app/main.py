@@ -1,9 +1,10 @@
 from fastapi import FastAPI
-from app.api.endpoints import users
+from app.api.endpoints import users, chat
 
 app = FastAPI(title="Agent Service")
 
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
 
 @app.get("/")
 async def read_root():
