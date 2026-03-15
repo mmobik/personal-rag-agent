@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+httpx
 redis
 psycopg2-binary
 pydantic-settings
