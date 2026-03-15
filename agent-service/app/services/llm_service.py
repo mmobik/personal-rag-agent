@@ -28,7 +28,17 @@ async def complete(messages: list[dict[str, str]], model: str | None = None) -> 
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         r = await client.post(OPENROUTER_URL, json=payload, headers=_headers())
-        r.raise_for_status()
+        if r.status_code == 402:
+            try:
+                err = r.json()
+                msg = (err.get("error") or {}).get("message") or "недостаточно средств"
+            except Exception:
+                msg = "недостаточно средств на Open Router"
+            return f"(Сервис LLM недоступен: {msg}. Проверьте баланс на openrouter.ai)"
+        if r.status_code == 401:
+            return "(Сервис LLM: неверный API ключ Open Router.)"
+        if not r.is_success:
+            return f"(Сервис LLM недоступен: HTTP {r.status_code})"
     data = r.json()
     choice = data.get("choices") or []
     if not choice:
