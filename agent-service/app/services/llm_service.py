@@ -28,8 +28,7 @@ async def complete(messages: list[dict[str, str]], model: str | None = None) -> 
         "prompt": prompt,
         "stream": False,
     }
-    # Первая генерация может занимать время (подгрузка модели).
-    # Делаем таймаут выше, чтобы не получать ReadTimeout.
+
     async with httpx.AsyncClient(timeout=300.0) as client:
         r = await client.post(OLLAMA_GENERATE_URL, json=payload)
         if not r.is_success:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.services.llm_service import complete
+from app.services.chat_service import reply
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -13,6 +13,5 @@ class ChatRequest(BaseModel):
 @router.post("")
 async def chat(body: ChatRequest):
     """Принять сообщение, вернуть ответ LLM."""
-    messages = [{"role": "user", "content": body.message}]
-    response_text = await complete(messages)
+    response_text = await reply(body.telegram_id, body.message)
     return {"response": response_text}

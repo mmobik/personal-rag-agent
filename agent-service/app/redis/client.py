@@ -1,14 +1,10 @@
 import redis
-from app.core import settings
-import time
+
+from app.core.config import settings
+
 client = redis.Redis(
     host=settings.REDIS_HOST,
     port=settings.REDIS_PORT,
-    db=0
+    db=0,
+    decode_responses=True,
 )
-
-try:
-    responce = client.ping()
-    print(f"Redis is running: {responce}")
-except redis.ConnectionError as e:
-    print(f"Error connecting to Redis: {e}")
