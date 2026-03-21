@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Регистрация - Agent Service</title>
+    <link rel="stylesheet" href="/static/css/login.css" />
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="register-form">
+        <h2>Регистрация</h2>
+        <form id="registerForm">
+          <div class="form-group">
+            <label for="regEmail">Email:</label>
+            <input type="email" id="regEmail" name="email" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="regUsername">Имя пользователя:</label>
+            <input type="text" id="regUsername" name="username" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="regPassword">Пароль:</label>
+            <input type="password" id="regPassword" name="password" required autocomplete="new-password" style="width: 100%;" />
+            <button type="button" id="generatePassword" style="margin-top: 10px; width: 100%;">Сгенерировать пароль</button>
+            <small>Требования: минимум 8 символов, заглавная буква, строчная буква, цифра, спецсимвол</small>
+          </div>
+          <button type="submit" style="margin-top: 15px; width: 100%;">Зарегистрироваться</button>
+        </form>
+        <div class="login-link">
+          <p>Уже есть аккаунт? <a href="/ui/login">Войти</a></p>
+        </div>
+        <div id="regMessage" class="message"></div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const registerForm = document.getElementById('registerForm');
+        const regMessageDiv = document.getElementById('regMessage');
+        const generatePasswordBtn = document.getElementById('generatePassword');
+
+        // Генерация пароля
+        generatePasswordBtn.addEventListener('click', async function() {
+          try {
+            const response = await fetch('/api/v1/auth/generate-password');
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            document.getElementById('regPassword').value = data.password;
+          } catch (error) {
+            console.error('Ошибка генерации пароля:', error);
+            showMessage(regMessageDiv, 'Ошибка генерации пароля: ' + error.message, true);
+          }
+        });
+
+        // Отображение сообщения
+        function showMessage(element, message, isError = false) {
+          element.textContent = message;
+          element.className = 'message ' + (isError ? 'error' : 'success');
+        }
+
+        // Обработка регистрации
+        registerForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          
+          const email = document.getElementById('regEmail').value;
+          const username = document.getElementById('regUsername').value;
+          const password = document.getElementById('regPassword').value;
+          
+          // Очистка предыдущих сообщений
+          regMessageDiv.className = 'message';
+          regMessageDiv.textContent = '';
+          
+          try {
+            const response = await fetch('/api/v1/auth/register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ email, username, password })
+            });
+            
+            // Проверяем тип контента ответа
+            const contentType = response.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+              data = await response.json();
+            } else {
+              const text = await response.text();
+              data = { detail: text || 'Неизвестная ошибка' };
+            }
+            
+            if (response.ok) {
+              showMessage(regMessageDiv, data.message || 'Регистрация успешна! Проверьте ваш email для подтверждения.', false);
+              // Очищаем форму
+              registerForm.reset();
+            } else {
+              showMessage(regMessageDiv, data.detail || 'Ошибка регистрации: ' + response.status, true);
+            }
+          } catch (error) {
+            showMessage(regMessageDiv, 'Ошибка сети: ' + error.message, true);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

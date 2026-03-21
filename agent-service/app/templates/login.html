@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Авторизация - Agent Service</title>
+    <link rel="stylesheet" href="/static/css/login.css" />
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-form">
+        <h2>Вход в систему</h2>
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+          <div class="form-group">
+            <label for="password">Пароль:</label>
+            <input type="password" id="password" name="password" required />
+          </div>
+          <button type="submit">Войти</button>
+        </form>
+        <div class="register-link">
+          <p>Нет аккаунта? <a href="/ui/register">Зарегистрироваться</a></p>
+        </div>
+        <div id="message" class="message"></div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const messageDiv = document.getElementById('message');
+
+        // Отображение сообщения
+        function showMessage(element, message, isError = false) {
+          element.textContent = message;
+          element.className = 'message ' + (isError ? 'error' : 'success');
+        }
+
+        // Обработка входа
+        loginForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          
+          const email = document.getElementById('email').value;
+          const password = document.getElementById('password').value;
+          
+          try {
+            const response = await fetch('/api/v1/auth/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ email, password })
+            });
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              const text = await response.text();
+              throw new Error(`Сервер вернул некорректный ответ: ${text}`);
+            }
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              // Сохраняем токен в localStorage
+              localStorage.setItem('user', JSON.stringify(data));
+              showMessage(messageDiv, 'Успешный вход! Перенаправление...', false);
+              setTimeout(() => {
+                window.location.href = '/ui/chat-history';
+              }, 1000);
+            } else {
+              showMessage(messageDiv, data.detail || 'Ошибка входа', true);
+            }
+          } catch (error) {
+            if (error instanceof SyntaxError) {
+              showMessage(messageDiv, 'Ошибка сервера: Некорректный ответ', true);
+            } else {
+              showMessage(messageDiv, 'Ошибка сети: ' + error.message, true);
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
