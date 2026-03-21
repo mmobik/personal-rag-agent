@@ -8,7 +8,10 @@
   </head>
   <body>
     <div class="container">
-      <h2>Redis: chat history</h2>
+      <div class="header">
+        <h2>Redis: chat history</h2>
+        <button id="logoutBtn">Выйти</button>
+      </div>
       <p class="muted">Просмотр/удаление ключей <code>chat:history:*</code>. Не предназначено для публичного доступа.</p>
 
       <div class="row">
@@ -39,6 +42,18 @@
       <pre id="messages">(пусто)</pre>
     </div>
 
+    <script>
+      // Проверка авторизации
+      const user = localStorage.getItem('user');
+      if (!user) {
+        window.location.href = '/ui/login';
+      }
+
+      document.getElementById('logoutBtn').onclick = function() {
+        localStorage.removeItem('user');
+        window.location.href = '/ui/login';
+      };
+    </script>
     <script src="/static/js/chat_history.js"></script>
   </body>
 </html>

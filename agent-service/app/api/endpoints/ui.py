@@ -4,9 +4,17 @@ from pathlib import Path
 
 router = APIRouter(tags=["ui"])
 
-
 @router.get("/ui/chat-history", response_class=HTMLResponse)
 def chat_history_ui():
     template_path = Path(__file__).resolve().parents[2] / "templates" / "chat_history.html"
     return HTMLResponse(template_path.read_text(encoding="utf-8"))
 
+@router.get("/ui/login", response_class=HTMLResponse)
+def login_ui():
+    template_path = Path(__file__).resolve().parents[2] / "templates" / "login.html"
+    return HTMLResponse(template_path.read_text(encoding="utf-8"))
+
+@router.get("/ui/register", response_class=HTMLResponse)
+def register_ui():
+    template_path = Path(__file__).resolve().parents[2] / "templates" / "register.html"
+    return HTMLResponse(template_path.read_text(encoding="utf-8"))

@@ -7,17 +7,51 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
-async function api(path, opts) {
-  const res = await fetch(path, opts);
-  const text = await res.text();
-  let data = null;
+// Проверка авторизации
+const user = localStorage.getItem('user');
+if (!user) {
+  window.location.href = '/ui/login';
+}
+
+async function api(path, opts = {}) {
   try {
-    data = text ? JSON.parse(text) : null;
-  } catch (_) {}
-  if (!res.ok) {
-    throw new Error((data && (data.detail || data.message)) || text || `HTTP ${res.status}`);
+    // Добавляем Basic Auth заголовок
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData && userData.email && userData.api_key) {
+      const credentials = btoa(`${userData.email}:${userData.api_key}`);
+      opts.headers = {
+        ...opts.headers,
+        'Authorization': `Basic ${credentials}`
+      };
+    }
+
+    const res = await fetch(path, opts);
+    
+    // Проверяем тип контента
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      return text ? { message: text } : {};
+    }
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      if (res.status === 401) {
+        localStorage.removeItem('user');
+        window.location.href = '/ui/login';
+        return;
+      }
+      throw new Error((data && (data.detail || data.message)) || `HTTP ${res.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
   }
-  return data;
 }
 
 async function refresh() {
