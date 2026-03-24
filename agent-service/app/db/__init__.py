@@ -4,7 +4,7 @@ Database package
 """
 
 from .postgres import engine, Base, SessionLocal, get_db
-from .models import User, ChatHistory, AgentSession
+from .models import User, ChatHistory, AgentSession, TelegramProfile, UIAdminProfile, UserType
 
 __all__ = [
     'engine',
@@ -14,6 +14,9 @@ __all__ = [
     'User',
     'ChatHistory',
     'AgentSession',
+    'TelegramProfile',
+    'UIAdminProfile',
+    'UserType',
 ]
 
-version = "1.0.0"
+version = "1.0.1"
