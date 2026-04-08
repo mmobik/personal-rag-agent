@@ -11,7 +11,7 @@ async def create_user(request: Request):
     body = await request.json()
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{settings.AGENT_SERVICE_URL}/api/v1/users",
+            f"{settings.AGENT_SERVICE_URL}/api/v1/users/telegram",
             json=body,
             timeout=10.0,
         )
