@@ -1,0 +1,14 @@
+# Dev override for local development: mounts source into container and enables reload
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+version: '3.8'
+services:
+  agent-service:
+    volumes:
+      - ./agent-service:/app:delegated
+      - ./agent-service/app/templates:/app/app/templates:delegated
+      - ./agent-service/app/static:/app/app/static:delegated
+    environment:
+      - DEV=true
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8001:8000"

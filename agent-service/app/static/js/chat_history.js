@@ -3,6 +3,9 @@ const listEl = document.getElementById("list");
 const tidEl = document.getElementById("tid");
 const messagesEl = document.getElementById("messages");
 
+// 👇 БАЗОВЫЙ URL ДЛЯ API (напрямую к agent-service)
+const API_BASE = "http://localhost:8001/api/v1";
+
 function setStatus(text) {
   statusEl.textContent = text;
 }
@@ -15,7 +18,6 @@ if (!user) {
 
 async function api(path, opts = {}) {
   try {
-    // Добавляем Basic Auth заголовок
     const userData = JSON.parse(localStorage.getItem('user'));
     if (userData && userData.email && userData.api_key) {
       const credentials = btoa(`${userData.email}:${userData.api_key}`);
@@ -25,9 +27,10 @@ async function api(path, opts = {}) {
       };
     }
 
-    const res = await fetch(path, opts);
+    // 👇 ИСПРАВЛЕНО: используем API_BASE вместо относительного пути
+    const url = `${API_BASE}${path}`;
+    const res = await fetch(url, opts);
     
-    // Проверяем тип контента
     const contentType = res.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       const text = await res.text();
@@ -58,7 +61,7 @@ async function refresh() {
   setStatus("Загрузка...");
   listEl.innerHTML = "";
   try {
-    const data = await api("/api/v1/admin/chat-histories");
+    const data = await api("/admin/chat-histories");
     setStatus(`Найдено: ${data.count}`);
     for (const id of data.telegram_ids) {
       const tr = document.createElement("tr");
@@ -89,23 +92,56 @@ async function refresh() {
   }
 }
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 async function loadHistory(id) {
-  messagesEl.textContent = "(загрузка...)";
+  messagesEl.innerHTML = '<div class="chat-loading">Загрузка...</div>';
   try {
-    const data = await api(`/api/v1/admin/chat-histories/${encodeURIComponent(id)}?last_n=50`);
-    messagesEl.textContent = JSON.stringify(data.messages, null, 2);
+    const data = await api(`/admin/chat-histories/${encodeURIComponent(id)}?last_n=50`);
+    
+    if (!data.messages || data.messages.length === 0) {
+      messagesEl.innerHTML = '<div class="chat-empty">Нет сообщений</div>';
+      tidEl.value = id;
+      return;
+    }
+    
+    let html = '<div class="chat-messages">';
+    for (const msg of data.messages) {
+      if (msg.role === 'user') {
+        html += `
+          <div class="message user">
+            <div class="role">👤 Пользователь</div>
+            <div class="content">${escapeHtml(msg.content)}</div>
+          </div>
+        `;
+      } else if (msg.role === 'assistant') {
+        html += `
+          <div class="message assistant">
+            <div class="role">🤖 Ассистент</div>
+            <div class="content">${escapeHtml(msg.content)}</div>
+          </div>
+        `;
+      }
+    }
+    html += '</div>';
+    
+    messagesEl.innerHTML = html;
     tidEl.value = id;
   } catch (e) {
-    messagesEl.textContent = `Ошибка: ${e.message}`;
+    messagesEl.innerHTML = `<div class="chat-error">Ошибка: ${escapeHtml(e.message)}</div>`;
   }
 }
 
 async function deleteHistory(id) {
   if (!confirm(`Удалить историю для ${id}?`)) return;
   try {
-    await api(`/api/v1/admin/chat-histories/${encodeURIComponent(id)}`, { method: "DELETE" });
+    await api(`/admin/chat-histories/${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
-    if (tidEl.value === id) messagesEl.textContent = "(пусто)";
+    if (tidEl.value === id) messagesEl.innerHTML = '<div class="chat-empty">(пусто)</div>';
   } catch (e) {
     alert(`Ошибка: ${e.message}`);
   }
@@ -114,10 +150,10 @@ async function deleteHistory(id) {
 async function deleteAll() {
   if (!confirm("Удалить ВСЕ истории?")) return;
   try {
-    const data = await api("/api/v1/admin/chat-histories", { method: "DELETE" });
+    const data = await api("/admin/chat-histories", { method: "DELETE" });
     alert(`Удалено ключей: ${data.deleted}`);
     await refresh();
-    messagesEl.textContent = "(пусто)";
+    messagesEl.innerHTML = '<div class="chat-empty">(пусто)</div>';
   } catch (e) {
     alert(`Ошибка: ${e.message}`);
   }

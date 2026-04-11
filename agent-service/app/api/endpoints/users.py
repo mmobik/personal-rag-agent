@@ -13,7 +13,7 @@ class TelegramUserCreate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
 
-@router.post("/telegram", status_code=201)
+@router.post("", status_code=201)
 def create_telegram_user(body: TelegramUserCreate, db: Session = Depends(get_db)):
     """Создание пользователя Telegram (для бота)"""
     try:

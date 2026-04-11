@@ -15,10 +15,14 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
     OLLAMA_MODEL: str = "gemma3:4b"
     OLLAMA_SYSTEM_PROMPT: str = ""
+    # Разработка: включить dev режим (подключение исходников через volume, reload и т.п.)
+    DEV: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        # Игнорировать дополнительные переменные окружения, чтобы приложение не падало
+        extra="ignore",
     )
 
 settings = Settings()

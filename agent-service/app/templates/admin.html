@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ панель - История чата</title>
+  <link rel="stylesheet" href="/static/css/chat_history.css">
+</head>
+<body>
+  <div class="admin-container">
+    <div class="admin-header">
+      <div class="header-left">
+        <h1>Админ панель</h1>
+      </div>
+      <!-- header-center removed per request -->
+      <div class="header-right" style="flex-direction: column; align-items: flex-end;">
+        <a href="/ui/profile" title="Профиль">
+          <img id="profileAvatarBtn" class="profile-avatar-btn" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%234f46e5'/%3E%3Ctext x='50' y='60' font-size='50' fill='white' text-anchor='middle' font-weight='bold'%3EA%3C/text%3E%3C/svg%3E" alt="Avatar" width="100" height="100" style="width:100px;height:100px;max-width:100px;max-height:100px;display:block;">
+        </a>
+        <button id="logoutBtn" class="logout-btn" style="margin-top:10px;">Выход</button>
+      </div>
+    </div>
+
+    <div class="admin-content">
+      <!-- Левая колонка: список чатов -->
+      <div class="chats-section">
+        <table class="chats-table">
+          <thead>
+            <tr>
+              <th>Telegram ID</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="2">
+                <div class="controls">
+                  <button id="refresh" class="btn btn-primary">Обновить</button>
+                  <button id="deleteAll" class="btn btn-danger">Удалить все</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+
+      <!-- Правая колонка: подробный просмотр и сообщения -->
+      <div class="messages-section">
+        <div class="tid-container">
+          <label for="tid">Telegram ID:</label>
+          <input type="text" id="tid" placeholder="Введите или выберите из списка" />
+          <button id="loadOne" class="btn btn-info">Загрузить</button>
+          <button id="deleteOne" class="btn btn-danger">Удалить</button>
+        </div>
+        <div class="messages-wrapper">
+          <div id="messages" class="messages-display"></div>
+        </div>
+        <div class="found-status-container">
+          <div id="foundStatus" class="status-message" style="text-align:right; margin-top:12px;">Найдено: 0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  const foundStatusEl = document.getElementById("foundStatus");
+const listEl = document.getElementById("list");
+const tidEl = document.getElementById("tid");
+const messagesEl = document.getElementById("messages");
+
+const API_BASE = "/api/v1";
+
+function setStatus(text) {
+  if (foundStatusEl) foundStatusEl.textContent = text;
+}
+
+// Проверка авторизации
+const authUser = localStorage.getItem('user');
+if (!authUser) {
+  window.location.href = '/ui/login';
+}
+
+async function api(path, opts = {}) {
+  try {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData && userData.email && userData.api_key) {
+      const credentials = btoa(`${userData.email}:${userData.api_key}`);
+      opts.headers = {
+        ...opts.headers,
+        'Authorization': `Basic ${credentials}`
+      };
+    }
+
+    const url = `${API_BASE}${path}`;
+    console.log('Fetching:', url);
+    const res = await fetch(url, opts);
+    
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      return text ? { message: text } : {};
+    }
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      if (res.status === 401) {
+        localStorage.removeItem('user');
+        window.location.href = '/ui/login';
+        return;
+      }
+      throw new Error((data && (data.detail || data.message)) || `HTTP ${res.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error('API Error:', error);
+    setStatus(`Ошибка: ${error.message}`);
+    throw error;
+  }
+}
+
+async function refresh() {
+    // setStatus moved to foundStatus in right column
+    if (listEl) listEl.innerHTML = "";
+  try {
+    const data = await api("/admin/chat-histories");
+    if (foundStatusEl) foundStatusEl.textContent = `Найдено: ${data.count}`;
+    if (data.telegram_ids) {
+      for (const id of data.telegram_ids) {
+        const tr = document.createElement("tr");
+
+        const td1 = document.createElement("td");
+        td1.textContent = id;
+
+        const td2 = document.createElement("td");
+        const viewBtn = document.createElement("button");
+        viewBtn.textContent = "Показать";
+        viewBtn.onclick = () => loadHistory(id);
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Удалить";
+        delBtn.className = "danger";
+        delBtn.onclick = () => deleteHistory(id);
+
+        td2.appendChild(viewBtn);
+        td2.appendChild(document.createTextNode(" "));
+        td2.appendChild(delBtn);
+
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        if (listEl) listEl.appendChild(tr);
+      }
+    }
+  } catch (e) {
+    if (foundStatusEl) foundStatusEl.textContent = `Ошибка: ${e.message}`;
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function loadHistory(id) {
+  if (messagesEl) messagesEl.innerHTML = '<div class="chat-loading">Загрузка...</div>';
+  try {
+    const data = await api(`/admin/chat-histories/${encodeURIComponent(id)}?last_n=50`);
+    
+    if (!data.messages || data.messages.length === 0) {
+      if (messagesEl) messagesEl.innerHTML = '<div class="chat-empty">Нет сообщений</div>';
+      if (tidEl) tidEl.value = id;
+      return;
+    }
+    
+    let html = '<div class="chat-messages">';
+    for (const msg of data.messages) {
+      if (msg.role === 'user') {
+        html += `
+          <div class="message user">
+            <div class="role">Пользователь</div>
+            <div class="content">${escapeHtml(msg.content)}</div>
+          </div>
+        `;
+      } else if (msg.role === 'assistant') {
+        html += `
+          <div class="message assistant">
+            <div class="role">Ассистент</div>
+            <div class="content">${escapeHtml(msg.content)}</div>
+          </div>
+        `;
+      }
+    }
+    html += '</div>';
+    
+    if (messagesEl) messagesEl.innerHTML = html;
+    if (tidEl) tidEl.value = id;
+  } catch (e) {
+    if (messagesEl) messagesEl.innerHTML = `<div class="chat-error">Ошибка: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function deleteHistory(id) {
+  if (!confirm(`Удалить историю для ${id}?`)) return;
+  try {
+    await api(`/admin/chat-histories/${encodeURIComponent(id)}`, { method: "DELETE" });
+    await refresh();
+    if (tidEl && tidEl.value === id && messagesEl) messagesEl.innerHTML = '<div class="chat-empty">(пусто)</div>';
+  } catch (e) {
+    alert(`Ошибка: ${e.message}`);
+  }
+}
+
+async function deleteAll() {
+  if (!confirm("Удалить ВСЕ истории?")) return;
+  try {
+    const data = await api("/admin/chat-histories", { method: "DELETE" });
+    alert(`Удалено ключей: ${data.deleted}`);
+    await refresh();
+    if (messagesEl) messagesEl.innerHTML = '<div class="chat-empty">(пусто)</div>';
+  } catch (e) {
+    alert(`Ошибка: ${e.message}`);
+  }
+}
+
+// Ждём загрузки DOM перед регистрацией обработчиков
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshBtn = document.getElementById("refresh");
+  const deleteAllBtn = document.getElementById("deleteAll");
+  const loadOneBtn = document.getElementById("loadOne");
+  const deleteOneBtn = document.getElementById("deleteOne");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const profileAvatarBtn = document.getElementById("profileAvatarBtn");
+
+  // Установим компактный аватар на header на основе email (инициал)
+  if (profileAvatarBtn) {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user')||'null');
+      const initial = userData && userData.email ? (userData.email[0]||'A').toUpperCase() : 'A';
+      profileAvatarBtn.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%234f46e5'/%3E%3Ctext x='50' y='60' font-size='50' fill='white' text-anchor='middle' font-weight='bold'%3E${encodeURIComponent(initial)}%3C/text%3E%3C/svg%3E`;
+    } catch (e) { /* ignore */ }
+  }
+
+  if (refreshBtn) refreshBtn.onclick = refresh;
+  if (deleteAllBtn) deleteAllBtn.onclick = deleteAll;
+  if (loadOneBtn) {
+    loadOneBtn.onclick = () => {
+      const id = (tidEl?.value || "").trim();
+      if (id) loadHistory(id);
+    };
+  }
+  if (deleteOneBtn) {
+    deleteOneBtn.onclick = () => {
+      const id = (tidEl?.value || "").trim();
+      if (id) deleteHistory(id);
+    };
+  }
+  if (logoutBtn) {
+    logoutBtn.onclick = () => {
+      localStorage.removeItem('user');
+      window.location.href = '/ui/login';
+    };
+  }
+
+  refresh();
+});
+  </script>
+</body>
+</html>

@@ -1,59 +1,15 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agent Service - Redis chat history</title>
-    <link rel="stylesheet" href="/static/css/chat_history.css" />
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h2>Redis: chat history</h2>
-        <button id="logoutBtn">Выйти</button>
-      </div>
-      <p class="muted">Просмотр/удаление ключей <code>chat:history:*</code>. Не предназначено для публичного доступа.</p>
-
-      <div class="row">
-        <button id="refresh">Обновить список</button>
-        <button id="deleteAll" class="danger">Удалить все истории</button>
-        <span id="status" class="muted"></span>
-      </div>
-
-      <h3>Поиск по telegram_id</h3>
-      <div class="row">
-        <input id="tid" placeholder="telegram_id (например 123456789)" />
-        <button id="loadOne">Показать</button>
-        <button id="deleteOne" class="danger">Удалить</button>
-      </div>
-
-      <h3>Список</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>telegram_id</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody id="list"></tbody>
-      </table>
-
-      <h3>Сообщения</h3>
-      <pre id="messages">(пусто)</pre>
-    </div>
-
-    <script>
-      // Проверка авторизации
-      const user = localStorage.getItem('user');
-      if (!user) {
-        window.location.href = '/ui/login';
-      }
-
-      document.getElementById('logoutBtn').onclick = function() {
-        localStorage.removeItem('user');
-        window.location.href = '/ui/login';
-      };
-    </script>
-    <script src="/static/js/chat_history.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>История чата</title>
+</head>
+<body>
+  <script>
+    // Редирект на админ панель
+    window.location.href = '/ui/admin';
+  </script>
+  <p>Перенаправление на админ панель...</p>
+</body>
 </html>
